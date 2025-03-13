@@ -56,7 +56,8 @@ class MeteorBabelMinifier extends CachingMinifier {
       {
         // Both `compress` and `mangle` need to be false for this to work with meteor-vite.
         // SWC will still minify the code, albeit slightly less efficiently and with less obfuscation.
-        ecma: 5,
+        // Bumping ECMAScript version does help with file sizes a bit though.
+        ecma: file._arch.includes('legacy') ? 6 : 2021,
         compress: false,
         mangle: false,
         sourceMap: map ? {
