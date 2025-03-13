@@ -1,7 +1,6 @@
 const { extractModuleSizesTree } = require("./stats.js");
 const { CachingMinifier } = require("meteor/zodern:caching-minifier");
 const generatePackageMap = require('./generate-package-map.js');
-const { CombinedFile } = require('@zodern/source-maps');
 
 const statsEnabled = process.env.DISABLE_CLIENT_STATS !== 'true'
 
@@ -38,7 +37,7 @@ class MeteorBabelMinifier extends CachingMinifier {
   }
 
   _minifyWithSwc(file) {
-    swc = swc || require('meteor-package-install-swc'); 
+    swc = swc || require('meteor-package-install-swc');
     const NODE_ENV = process.env.NODE_ENV || 'development';
 
     let map = file.getSourceMap();
@@ -135,29 +134,23 @@ MeteorBabelMinifier.prototype.processFilesForBundle = Profile('processFilesForBu
     return;
   }
 
-  const minifiedResults = [];
-  const toBeAdded = {
-    data: "",
-    stats: Object.create(null)
-  };
-
-  var combinedFile = new CombinedFile();
-
+  // Process each file individually without bundling
   files.forEach(file => {
-    // Don't reminify *.min.js.
-    // FIXME: this still minifies .min.js app files since they were all combined into app.js
-    if (/\.min\.js$/.test(file.getPathInBundle())) {
-      minifiedResults.push({
-        code: file.getContentsAsString(),
-        map: file.getSourceMap()
+    const path = file.getPathInBundle();
+    if (/\.min\.js$/.test(path)) {
+      // Don't reminify *.min.js, just add it back with its original content
+      file.addJavaScript({
+        data: file.getContentsAsBuffer(),
+        sourceMap: file.getSourceMap(),
+        path
       });
     } else {
-      var minified;
-      let label = 'minify file'
-      if (file.getPathInBundle() === 'app/app.js') {
+      let minified;
+      let label = 'minify file';
+      if (path === 'app/app.js') {
         label = 'minify app/app.js'
       }
-      if (file.getPathInBundle() === 'packages/modules.js') {
+      if (path === 'packages/modules.js') {
         label = 'minify packages/modules.js'
       }
 
@@ -171,9 +164,7 @@ MeteorBabelMinifier.prototype.processFilesForBundle = Profile('processFilesForBu
         }
 
       } catch (err) {
-        var filePath = file.getPathInBundle();
-
-        err.message += " while minifying " + filePath;
+        err.message += " while minifying " + path;
         throw err;
       }
 
@@ -183,51 +174,35 @@ MeteorBabelMinifier.prototype.processFilesForBundle = Profile('processFilesForBu
           tree = extractModuleSizesTree(minified.code);
         });
 
+        // Create stats for this individual file
+        let stats = Object.create(null);
         if (tree) {
-          toBeAdded.stats[file.getPathInBundle()] =
-            [Buffer.byteLength(minified.code), tree];
+          stats[path] = [Buffer.byteLength(minified.code), tree];
         } else {
-          toBeAdded.stats[file.getPathInBundle()] =
-            Buffer.byteLength(minified.code);
+          stats[path] = Buffer.byteLength(minified.code);
         }
-      }
 
-      minifiedResults.push({
-        file: file.getPathInBundle(),
-        code: minified.code,
-        map: minified.map
-      });
+        // Add the minified file back to its original location with its own sourcemap
+        Profile.time('addJavaScript', () => {
+          file.addJavaScript({
+            data: minified.code,
+            sourceMap: minified.map,
+            path,
+            stats
+          });
+        });
+      } else {
+        // Add the minified file back to its original location with its own sourcemap
+        Profile.time('addJavaScript', () => {
+          file.addJavaScript({
+            data: minified.code,
+            sourceMap: minified.map,
+            path
+          });
+        });
+      }
     }
 
     Plugin.nudge();
   });
-
-  let output;
-  Profile.time('concat', () => {
-    minifiedResults.forEach(function (result, index) {
-      if (index > 0) {
-        combinedFile.addGeneratedCode('\n\n');
-      }
-
-      let map = result.map;
-
-      if (typeof map === 'string') {
-        map = JSON.parse(result.map);
-      }
-
-      combinedFile.addCodeWithMap(result.file, { code: result.code, map });
-
-      Plugin.nudge();
-    });
-
-    output = combinedFile.build();
-  });
-
-  if (files.length) {
-    Profile.time('addJavaScript', () => {
-      toBeAdded.data = output.code;
-      toBeAdded.sourceMap = output.map;
-      files[0].addJavaScript(toBeAdded);
-    });
-  }
 });
