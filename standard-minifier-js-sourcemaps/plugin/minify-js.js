@@ -57,11 +57,6 @@ class MeteorBabelMinifier extends CachingMinifier {
         ecma: 5,
         compress: {
           drop_debugger: false,
-
-          unused: true,
-          dead_code: true,
-          typeofs: false,
-
           global_defs: {
             'process.env.NODE_ENV': NODE_ENV,
           },
