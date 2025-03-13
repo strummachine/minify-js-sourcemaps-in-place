@@ -1,9 +1,9 @@
 Package.describe({
-  name: 'zodern:standard-minifier-js',
-  version: '5.3.1',
-  summary: 'Fast javascript minifier that creates production sourcemap',
+  name: 'strummachine:standard-minifier-js',
+  version: '6.0.0',
+  summary: 'Fast javascript minifier that creates production sourcemap without bundling files',
   documentation: '../readme.md',
-  git: 'https://github.com/zodern/minify-js-sourcemaps.git'
+  git: 'https://github.com/strummachine/minify-js-sourcemaps.git'
 });
 
 Package.registerBuildPlugin({
@@ -25,6 +25,6 @@ Package.registerBuildPlugin({
   }
 });
 
-Package.onUse(function(api) {
+Package.onUse(function (api) {
   api.use('isobuild:minifier-plugin@1.0.0');
 });
