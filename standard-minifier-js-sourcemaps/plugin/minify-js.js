@@ -54,13 +54,11 @@ class MeteorBabelMinifier extends CachingMinifier {
     return swc.minifySync(
       content,
       {
+        // Both `compress` and `mangle` need to be false for this to work with meteor-vite.
+        // SWC will still minify the code, albeit slightly less efficiently and with less obfuscation.
         ecma: 5,
-        compress: {
-          drop_debugger: false,
-          global_defs: {
-            'process.env.NODE_ENV': NODE_ENV,
-          },
-        },
+        compress: false,
+        mangle: false,
         sourceMap: map ? {
           content: map,
         } : undefined,
